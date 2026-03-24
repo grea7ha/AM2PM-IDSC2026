@@ -4,8 +4,6 @@
 __pycache__/
 *.h5
 *.png
-*.json
-*.csv
 !Labels.csv
 Images/
 images_resized/
@@ -14,5 +12,3 @@ gradcam*/
 log.txt
 log2.txt
 *.log
-IDSC2026_Technical_Report.md
-robocopy_log.txt
