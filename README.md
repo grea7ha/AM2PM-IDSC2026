@@ -1,4 +1,4 @@
-# Glaucoma Detection Bootcamp Project
+# Glaucoma Detection Project
 
 This repository contains the source code for building, training, and evaluating various deep learning models (DenseNet121, EfficientNetB0, ResNet50) and hybrid architectures for glaucoma detection. It also includes steps for dataset preparation, quality analysis, and Grad-CAM visualizations.
 
