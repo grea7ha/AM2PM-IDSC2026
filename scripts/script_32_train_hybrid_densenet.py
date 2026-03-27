@@ -33,18 +33,18 @@ from tensorflow.keras import layers, models
 from tensorflow.keras.applications import DenseNet121
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-IMAGE_FOLDER  = 'images_resized'
-IMAGE_SIZE    = (224, 224)
-BATCH_SIZE    = 32
+# ── Configuration ───────────────────────────────────────────────────────
+IMAGE_FOLDER = 'images_resized'
+IMAGE_SIZE = (224, 224)
+BATCH_SIZE = 32
 EPOCHS_PHASE1 = 10
 EPOCHS_PHASE2 = 10
-LR_PHASE1     = 1e-3
-LR_PHASE2     = 1e-4
+LR_PHASE1 = 1e-3
+LR_PHASE2 = 1e-4
 
-# ── Load dataset metadata ─────────────────────────────────────────────────────
+# ── Load dataset metadata ───────────────────────────────────────────────
 train_df = pd.read_csv('data/train_full_dataset.csv')
-test_df  = pd.read_csv('data/test_full_dataset.csv')
+test_df = pd.read_csv('data/test_full_dataset.csv')
 
 
 def load_images_and_quality(dataframe, image_folder):
@@ -59,9 +59,9 @@ def load_images_and_quality(dataframe, image_folder):
     Returns:
         Tuple of (images array, quality scores array, labels array)
     """
-    images  = []
+    images = []
     quality = []
-    labels  = []
+    labels = []
 
     for _, row in dataframe.iterrows():
         img_path = os.path.join(image_folder, row['Image Name'])
@@ -82,23 +82,28 @@ def load_images_and_quality(dataframe, image_folder):
     )
 
 
-# ── Load training and testing data ────────────────────────────────────────────
+# ── Load training and testing data ──────────────────────────────────────
 print('Loading training images and quality scores...')
-X_train_images, X_train_quality, y_train = load_images_and_quality(train_df, IMAGE_FOLDER)
+X_train_images, X_train_quality, y_train = load_images_and_quality(
+    train_df, IMAGE_FOLDER)
 print(f'  Training images shape   : {X_train_images.shape}')
 print(f'  Training quality shape  : {X_train_quality.shape}')
 
 print('\nLoading testing images and quality scores...')
-X_test_images, X_test_quality, y_test = load_images_and_quality(test_df, IMAGE_FOLDER)
+X_test_images, X_test_quality, y_test = load_images_and_quality(
+    test_df, IMAGE_FOLDER)
 print(f'  Testing images shape    : {X_test_images.shape}')
 print(f'  Testing quality shape   : {X_test_quality.shape}')
 
-# ── Build the Hybrid Model ────────────────────────────────────────────────────
+# ── Build the Hybrid Model ──────────────────────────────────────────────
 print('\nBuilding Hybrid DenseNet121 (Quality-as-Feature) model...')
 
 # Branch A: Image input → DenseNet121 feature extractor
-image_input   = tf.keras.Input(shape=(224, 224, 3), name='image_input')
-densenet_base = DenseNet121(weights='imagenet', include_top=False, input_tensor=image_input)
+image_input = tf.keras.Input(shape=(224, 224, 3), name='image_input')
+densenet_base = DenseNet121(
+    weights='imagenet',
+    include_top=False,
+    input_tensor=image_input)
 densenet_base.trainable = False  # Frozen during Phase 1
 
 x = layers.GlobalAveragePooling2D()(densenet_base.output)
@@ -130,15 +135,20 @@ hybrid_model.compile(
 )
 hybrid_model.summary()
 
-# ── Callbacks ─────────────────────────────────────────────────────────────────
+# ── Callbacks ───────────────────────────────────────────────────────────
 callbacks = [
     # Halve the learning rate if validation loss stalls for 3 epochs
     ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1),
-    # Stop early and restore best weights if validation loss stalls for 5 epochs
-    EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1),
+    # Stop early and restore best weights if validation loss stalls for 5
+    # epochs
+    EarlyStopping(
+        monitor='val_loss',
+        patience=5,
+        restore_best_weights=True,
+        verbose=1),
 ]
 
-# ── Phase 1: Feature Extraction (frozen base) ─────────────────────────────────
+# ── Phase 1: Feature Extraction (frozen base) ───────────────────────────
 print('\n--- Phase 1: Feature Extraction (DenseNet121 base frozen) ---')
 history_phase1 = hybrid_model.fit(
     x=[X_train_images, X_train_quality],
@@ -157,7 +167,8 @@ densenet_base.trainable = True
 for layer in densenet_base.layers[:-20]:
     layer.trainable = False
 
-# Recompile with a much lower learning rate to avoid overwriting pre-trained weights
+# Recompile with a much lower learning rate to avoid overwriting
+# pre-trained weights
 hybrid_model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=LR_PHASE2),
     loss='binary_crossentropy',
@@ -173,17 +184,17 @@ history_phase2 = hybrid_model.fit(
     callbacks=callbacks
 )
 
-# ── Evaluate on held-out test set ─────────────────────────────────────────────
+# ── Evaluate on held-out test set ───────────────────────────────────────
 test_loss, test_accuracy = hybrid_model.evaluate(
     [X_test_images, X_test_quality], y_test
 )
 print(f'\nHybrid DenseNet121 — Test Accuracy: {test_accuracy:.4f}')
 
-# ── Save model ────────────────────────────────────────────────────────────────
+# ── Save model ──────────────────────────────────────────────────────────
 hybrid_model.save('hybrid_densenet.h5')
 print('Model saved: hybrid_densenet.h5')
 
-# ── Save training history ─────────────────────────────────────────────────────
+# ── Save training history ───────────────────────────────────────────────
 # Combine both phases into a single continuous history for plotting
 combined_history = {}
 for key in history_phase1.history:

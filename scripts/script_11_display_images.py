@@ -1,18 +1,40 @@
+"""
+Quality-Aware Glaucoma Triage System Pipeline
+=========================================================
+Author: Thanush Govindarajoo, Gunasree R
+Institution: National University of Malaysia, Anna University, India
+Dataset: Hillel Yaffe Glaucoma Dataset (HYGD)
+
+Project: Mathematics for Hope in Healthcare (IDSC 2026)
+Description:
+This script is part of our step-by-step modular pipeline for detecting
+Glaucomatous Optic Neuropathy. We explicitly modularized our code so
+each mathematical step (data loading, splitting, training, evaluation)
+can be verified independently.
+"""
+
+# Import necessary data structuring libraries
 import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
 import os
+# Load the dataset from the local data directory
 df = pd.read_csv('data/Labels.csv')
 if 'Unnamed: 4' in df.columns:
     df.drop(columns=['Unnamed: 4'], inplace=True)
 image_folder = 'images'
-df['image_path'] = df['Image Name'].apply(lambda x: os.path.join(image_folder, x))
+df['image_path'] = df['Image Name'].apply(
+    lambda x: os.path.join(image_folder, x))
 required_columns = ['Image Name', 'Label', 'image_path']
 for col in required_columns:
     if col not in df.columns:
         raise ValueError(f"Required column '{col}' not found in dataset.")
 quality_col = None
-possible_quality_cols = ['Quality Score', 'quality_score', 'Quality', 'quality']
+possible_quality_cols = [
+    'Quality Score',
+    'quality_score',
+    'Quality',
+    'quality']
 for col in possible_quality_cols:
     if col in df.columns:
         quality_col = col
@@ -30,17 +52,25 @@ for i in range(num_images):
         title_text = f'Label: {label}\nQuality: N/A'
     plt.subplot(1, num_images, i + 1)
     if os.path.exists(img_path):
+        # Open the image file and convert to RGB format
         img = Image.open(img_path)
         plt.imshow(img)
         plt.title(title_text, fontsize=10)
         plt.axis('off')
     else:
-        plt.text(0.5, 0.5, 'Image\nNot Found', ha='center', va='center', fontsize=12)
+        plt.text(
+            0.5,
+            0.5,
+            'Image\nNot Found',
+            ha='center',
+            va='center',
+            fontsize=12)
         plt.title(title_text, fontsize=10)
         plt.axis('off')
 plt.suptitle('First 5 Retinal Images', fontsize=16)
 plt.tight_layout()
-plt.show()
+plt.savefig('results/first_5_images.png')
+# plt.show()
 print('Displayed the first 5 retinal images.')
 print('Observe the optic disc, retinal vessels, illumination variation, blur, and noise.')
 print('These factors can affect image quality and model performance.')

@@ -1,25 +1,48 @@
+"""
+Quality-Aware Glaucoma Triage System Pipeline
+=========================================================
+Author: Thanush Govindarajoo, Gunasree R
+Institution: National University of Malaysia, Anna University, India
+Dataset: Hillel Yaffe Glaucoma Dataset (HYGD)
+
+Project: Mathematics for Hope in Healthcare (IDSC 2026)
+Description:
+This script is part of our step-by-step modular pipeline for detecting
+Glaucomatous Optic Neuropathy. We explicitly modularized our code so
+each mathematical step (data loading, splitting, training, evaluation)
+can be verified independently.
+"""
+
+# Import necessary data structuring libraries
+import seaborn as sns
+import matplotlib.pyplot as plt
 import pandas as pd
+# Import numerical computing library
 import numpy as np
 import os
 import json
 from PIL import Image
+# Import core deep learning framework
 import tensorflow as tf
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, classification_report, roc_curve
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import seaborn as sns
 print('Loading Hybrid ResNet50 model...')
 model = tf.keras.models.load_model('hybrid_resnet50.h5')
+# Load the dataset from the local data directory
 test_df = pd.read_csv('data/test_full_dataset.csv')
 image_folder = 'images_resized'
 X_test_images, X_test_quality, y_test = ([], [], [])
 valid_image_names = []
+# Iterate through the metadata to load corresponding images
 for _, row in test_df.iterrows():
     img_path = os.path.join(image_folder, row['Image Name'])
     if os.path.exists(img_path):
+        # Open the image file and convert to RGB format
         img = Image.open(img_path).convert('RGB')
+        # Resize standard dimensions suitable for ImageNet pre-trained
+        # backbones
         img = img.resize((224, 224))
         img_array = np.array(img, dtype=np.float32)
         img_array = preprocess_input(img_array)
@@ -31,27 +54,50 @@ X_test_images = np.array(X_test_images)
 X_test_quality = np.array(X_test_quality, dtype=np.float32)
 y_test = np.array(y_test)
 print(f'Test images loaded: {len(X_test_images)}')
+# Generate probabilistic predictions on the unseen test dataset
 predictions_prob = model.predict([X_test_images, X_test_quality]).flatten()
 predicted_labels = (predictions_prob > 0.5).astype(int)
-metrics = {'accuracy': float(accuracy_score(y_test, predicted_labels)), 'precision': float(precision_score(y_test, predicted_labels, zero_division=0)), 'recall': float(recall_score(y_test, predicted_labels, zero_division=0)), 'f1_score': float(f1_score(y_test, predicted_labels, zero_division=0)), 'roc_auc': float(roc_auc_score(y_test, predictions_prob))}
+metrics = {
+    'accuracy': float(
+        accuracy_score(
+            y_test, predicted_labels)), 'precision': float(
+                precision_score(
+                    y_test, predicted_labels, zero_division=0)), 'recall': float(
+                        recall_score(
+                            y_test, predicted_labels, zero_division=0)), 'f1_score': float(
+                                f1_score(
+                                    y_test, predicted_labels, zero_division=0)), 'roc_auc': float(
+                                        roc_auc_score(
+                                            y_test, predictions_prob))}
 print('\n===== Hybrid ResNet50 Evaluation Metrics =====')
 for metric_name, value in metrics.items():
     print(f'  {metric_name:>12s}: {value:.4f}')
 print('\nClassification Report:')
-print(classification_report(y_test, predicted_labels, target_names=['Normal', 'Glaucoma']))
+print(
+    classification_report(
+        y_test,
+        predicted_labels,
+        target_names=[
+            'Normal',
+            'Glaucoma']))
 with open('results/hybrid_resnet50_metrics.json', 'w') as f:
     json.dump(metrics, f, indent=2)
 print('Metrics saved to hybrid_resnet50_metrics.json')
 cm = confusion_matrix(y_test, predicted_labels)
 plt.figure(figsize=(6, 5))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Reds', xticklabels=['Normal', 'Glaucoma'], yticklabels=['Normal', 'Glaucoma'])
+sns.heatmap(
+    cm, annot=True, fmt='d', cmap='Reds', xticklabels=[
+        'Normal', 'Glaucoma'], yticklabels=[
+            'Normal', 'Glaucoma'])
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.title('Hybrid ResNet50 - Confusion Matrix')
 plt.tight_layout()
+# Save the generated plot to disk rather than displaying interactively
 plt.savefig('hybrid_resnet50_cm.png', dpi=150)
 plt.close()
 print('Confusion matrix saved to hybrid_resnet50_cm.png')
+# Calculate ROC curve coordinates for visual performance evaluation
 fpr, tpr, _ = roc_curve(y_test, predictions_prob)
 plt.figure(figsize=(6, 5))
 plt.plot(fpr, tpr, label=f"Hybrid ResNet50 (AUC = {metrics['roc_auc']:.4f})")
@@ -61,10 +107,12 @@ plt.ylabel('True Positive Rate')
 plt.title('Hybrid ResNet50 - ROC Curve')
 plt.legend(loc='lower right')
 plt.tight_layout()
+# Save the generated plot to disk rather than displaying interactively
 plt.savefig('hybrid_resnet50_roc.png', dpi=150)
 plt.close()
 print('ROC curve saved to hybrid_resnet50_roc.png')
 print('\nGenerating Grad-CAM heatmaps...')
+
 
 def get_gradcam_heatmap(img_array, quality_val, grad_model):
     """Generate Grad-CAM heatmap for the hybrid model's image branch."""
@@ -78,28 +126,38 @@ def get_gradcam_heatmap(img_array, quality_val, grad_model):
         return np.zeros((7, 7), dtype=np.float32)
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     conv_outputs_vals = conv_outputs[0]
+    # Compute the Grad-CAM heatmap highlighting visual clinical markers
     heatmap = conv_outputs_vals @ pooled_grads[..., tf.newaxis]
+    # Compute the Grad-CAM heatmap highlighting visual clinical markers
     heatmap = tf.squeeze(heatmap)
+    # Compute the Grad-CAM heatmap highlighting visual clinical markers
     heatmap = tf.maximum(heatmap, 0) / (tf.math.reduce_max(heatmap) + 1e-08)
     return heatmap.numpy()
+
 
 def overlay_gradcam(img_array, heatmap, alpha=0.4):
     """Overlay Grad-CAM heatmap on original image (expects 0-255 RGB)."""
     img = np.uint8(img_array)
     heatmap_resized = np.uint8(255 * heatmap)
-    heatmap_resized = np.array(Image.fromarray(heatmap_resized).resize((img.shape[1], img.shape[0])))
+    heatmap_resized = np.array(
+        Image.fromarray(heatmap_resized).resize(
+            (img.shape[1], img.shape[0])))
     colormap = plt.cm.jet
     heatmap_colored = colormap(heatmap_resized / 255.0)[:, :, :3]
     heatmap_colored = np.uint8(255 * heatmap_colored)
     superimposed = np.uint8(heatmap_colored * alpha + img * (1 - alpha))
     return superimposed
+
+
 gradcam_dir = 'gradcam_hybrid_resnet50'
 os.makedirs(gradcam_dir, exist_ok=True)
 print('Preparing Grad-CAM components...')
 gradcam_ready = False
 try:
     target_layer = model.get_layer('conv5_block3_out')
-    grad_model = tf.keras.Model(inputs=model.inputs, outputs=[target_layer.output, model.output])
+    grad_model = tf.keras.Model(
+        inputs=model.inputs, outputs=[
+            target_layer.output, model.output])
     gradcam_ready = grad_model is not None
     if gradcam_ready:
         print('Grad-CAM ready: Model layers extracted successfully.')
@@ -112,13 +170,18 @@ X_vis = []
 for i in range(num_samples):
     img_name = valid_image_names[i]
     img_path = os.path.join(image_folder, img_name)
+    # Open the image file and convert to RGB format
     img = Image.open(img_path).convert('RGB')
+    # Resize standard dimensions suitable for ImageNet pre-trained backbones
     img = img.resize((224, 224))
     X_vis.append(np.array(img))
 for i in range(num_samples):
     if gradcam_ready:
-        heatmap = get_gradcam_heatmap(X_test_images[i], X_test_quality[i], grad_model)
+        # Compute the Grad-CAM heatmap highlighting visual clinical markers
+        heatmap = get_gradcam_heatmap(
+            X_test_images[i], X_test_quality[i], grad_model)
     else:
+        # Compute the Grad-CAM heatmap highlighting visual clinical markers
         heatmap = np.zeros((7, 7), dtype=np.float32)
     superimposed = overlay_gradcam(X_vis[i], heatmap)
     actual = label_map[int(y_test[i])]
@@ -135,12 +198,19 @@ for i in range(num_samples):
     axes[2].imshow(superimposed)
     axes[2].set_title(f'Overlay\nPred: {predicted} ({prob:.2f})')
     axes[2].axis('off')
-    plt.suptitle(f'Hybrid ResNet50 Grad-CAM - {valid_image_names[i]}', fontsize=12)
+    plt.suptitle(
+        f'Hybrid ResNet50 Grad-CAM - {valid_image_names[i]}',
+        fontsize=12)
     plt.tight_layout()
+    # Save the generated plot to disk rather than displaying interactively
     plt.savefig(os.path.join(gradcam_dir, f'gradcam_{i}.png'), dpi=150)
     plt.close()
 print(f'Grad-CAM heatmaps saved to {gradcam_dir}/')
-results_df = pd.DataFrame({'Image Name': valid_image_names, 'actual': y_test, 'predicted': predicted_labels, 'probability': predictions_prob, 'quality_score': X_test_quality * 10})
+results_df = pd.DataFrame({'Image Name': valid_image_names,
+                           'actual': y_test,
+                           'predicted': predicted_labels,
+                           'probability': predictions_prob,
+                           'quality_score': X_test_quality * 10})
 results_df.to_csv('data/hybrid_resnet50_predictions.csv', index=False)
 print('Predictions saved to hybrid_resnet50_predictions.csv')
 print('\nHybrid ResNet50 evaluation complete!')

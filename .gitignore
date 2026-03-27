@@ -6,7 +6,9 @@ __pycache__/
 *.png
 !Labels.csv
 Images/
+images/
 images_resized/
+generate_mock_images.py
 gradcam*/
 *.zip
 log.txt
