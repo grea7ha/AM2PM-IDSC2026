@@ -150,7 +150,7 @@ def overlay_gradcam(img_array, heatmap, alpha=0.4):
     return superimposed
 
 
-gradcam_dir = 'gradcam_densenet'
+gradcam_dir = 'results/gradcam_densenet'
 os.makedirs(gradcam_dir, exist_ok=True)
 print('Preparing Grad-CAM components...')
 try:
