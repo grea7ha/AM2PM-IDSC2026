@@ -181,7 +181,7 @@ def overlay_gradcam(img_array, heatmap, alpha=0.4):
     return superimposed
 
 
-gradcam_dir = 'gradcam_efficientnet'
+gradcam_dir = 'results/gradcam_efficientnet'
 os.makedirs(gradcam_dir, exist_ok=True)
 label_map = {1: 'Glaucoma', 0: 'Normal'}
 num_samples = min(5, len(X_test))
